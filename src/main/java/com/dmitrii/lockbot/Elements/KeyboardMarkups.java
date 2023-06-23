@@ -11,13 +11,14 @@ public class KeyboardMarkups {
         return InlineKeyboardMarkup.builder().build();
     }
     public static InlineKeyboardMarkup getStartMenu(){
-        var buttonChageLock = InlineKeyboardButton.builder()
-                .text("EditLock")
-                .callbackData("editLock")
-                .build();
+
         var buttonChangePasword = InlineKeyboardButton.builder()
                 .text("ChangePassword")
                 .callbackData("changePassword")
+                .build();
+        var buttonChageLock = InlineKeyboardButton.builder()
+                .text("EditLock")
+                .callbackData("editLock")
                 .build();
         var buttonExitStartMenu = InlineKeyboardButton.builder()
                 .text("Exit")
@@ -29,7 +30,7 @@ public class KeyboardMarkups {
                 .keyboardRow(List.of(buttonExitStartMenu))
                 .build();
     }
-     public static InlineKeyboardMarkup getStateLockMenu(){
+    public static InlineKeyboardMarkup getStateEditMenu(){
         var buttonOpen = InlineKeyboardButton.builder()
                 .text("OpenLock")
                 .callbackData("open")
@@ -40,11 +41,11 @@ public class KeyboardMarkups {
                 .build();
         var buttonBack = InlineKeyboardButton.builder()
                 .text("Back")
-                .callbackData("backLock")
+                .callbackData("backEditorLock")
                 .build();
         var buttonExit = InlineKeyboardButton.builder()
                 .text("Exit")
-                .callbackData("exitLock")
+                .callbackData("exitEditorLock")
                 .build();
 
         return InlineKeyboardMarkup.builder()
@@ -52,19 +53,18 @@ public class KeyboardMarkups {
                 .keyboardRow(List.of(buttonBack, buttonExit))
                 .build();
      }
-
-     public static InlineKeyboardMarkup getPasswordMenu(){
+    public static InlineKeyboardMarkup getStateMenu(){
         var buttonBack = InlineKeyboardButton.builder()
                 .text("Back")
-                .callbackData("backPassword")
+                .callbackData("backState")
                 .build();
         var buttonExit = InlineKeyboardButton.builder()
                 .text("Exit")
-                .callbackData("exitPassword")
+                .callbackData("exitState")
                 .build();
 
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(buttonBack, buttonExit))
                 .build();
-     }
+    }
 }

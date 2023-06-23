@@ -17,6 +17,9 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 
 public class Bot extends TelegramLongPollingBot {
     private final String name;
@@ -50,7 +53,15 @@ public class Bot extends TelegramLongPollingBot {
     @Qualifier("mqttPublisher")
     private MqttPublisher publisher;
 
-    private volatile boolean isPasssword = false;
+    private volatile boolean isPasswordChange = false;
+    private volatile boolean isPassswordOpen = false;
+    private volatile boolean isPassswordClose = false;
+    private volatile boolean isOpen = false;
+    private volatile boolean isTub = false;
+
+    private final static Lock lock = new ReentrantLock();
+    private Object synchron = new Object(); // to synchonise threads
+
 
     public Bot(String name, String token) {
         super();
@@ -70,7 +81,7 @@ public class Bot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (isPasssword){
+        if (isPasswordChange){
             if (update.hasMessage() && update.getMessage().hasText()){
                 getPassword(update.getMessage().getChatId(), update.getMessage().getText());
                 return;
@@ -84,39 +95,73 @@ public class Bot extends TelegramLongPollingBot {
             if (msg.isCommand()) {
                 switch (msg.getText()) {
                     case "/start":
-                        this.isPasssword = true;
-                        this.options.fillField(handler);
-
-                        Thread threadNotification = new Thread(() ->{
-                            boolean isWrite = false;
+                        Thread threadNotification = new Thread(() -> {
+                            boolean isWriteOpen = false, isWriteClose = false;
+                            String botVal = "", lockVal = "";
                             Long chatId = msg.getChatId();
-                            while (true){
-                                if (this.isPasssword){
-                                    if (!isWrite) {
-                                        sendText(chatId, "LOCK OPEN BY PASSWORD");
-                                        isWrite = true;
+                            while (true) {
+                                while (isTub)
+                                botVal = handler.getBotValue();
+                                lockVal = handler.getLockValue();
+//                                System.out.println("botVal ==> " + botVal);
+//                                System.out.println("lockVal ==> " + lockVal);
+                                if (botVal.equals("0") && lockVal.equals("1")) {
+                                    isPassswordOpen = true;
+                                    isPassswordClose = false;
+//                                    System.out.println("isPassswordOpen == " + isPassswordOpen);
+//                                    System.out.println("isPassswordClose == " + isPassswordClose);
+                                }
+                                if (botVal.equals("1") && lockVal.equals("0")) {
+                                    isPassswordOpen = false;
+                                    isPassswordClose = true;
+//                                    System.out.println("isPassswordOpen == " + isPassswordOpen);
+//                                    System.out.println("isPassswordClose == " + isPassswordClose);
+                                }
+                                if (botVal.equals(lockVal)) {
+                                    isPassswordOpen = false;
+                                    isPassswordClose = false;
+                                }
+                                if (this.isPassswordOpen && !this.isPassswordClose) {
+                                    if (!isWriteOpen) {
+                                        try {
+                                            publisher.publish(botTopic, "1", qos, retained);
+                                            isOpen = true;
+                                        } catch (Exception e) {
+                                            throw new RuntimeException();
+                                        }
+                                        sendText(chatId, "lock is opened by password");
+                                        isOpen = true;
+                                        isWriteOpen = true;
                                     }
-                                }else {
-                                    isWrite = false;
+                                } else {
+                                    isWriteOpen = false;
+                                }
+                                if (!this.isPassswordOpen && this.isPassswordClose) {
+                                    if (!isWriteClose) {
+                                        try {
+                                            publisher.publish(botTopic, "0", qos, retained);
+                                            isOpen = false;
+                                        } catch (Exception e) {
+                                            throw new RuntimeException();
+                                        }
+                                        sendText(chatId, "lock is closed by password");
+                                        isOpen = false;
+                                        isWriteClose = true;
+                                    }
+                                } else {
+                                    isWriteClose = false;
                                 }
                             }
                         });
-                        threadNotification.start();
 
-                        Thread threadIsPassword = new Thread(() -> {
-                            while (true){
-                                if (handler.isOpenByPassword()){
-                                    isPasssword = true;
-                                }else {
-                                    isPasssword = false;
-                                }
-                            }
-                        });
-                        threadIsPassword.start();
+                        threadNotification.start();
                         break;
                     case "/menu":
                         sendMenu(id, "<b>Menu</b>", KeyboardMarkups.getStartMenu());
                         break;
+                    case"/state":
+                        if (isOpen) sendText(id, "State of lock is <strong>OPEN</strong>");
+                        else sendText(id, "State of lock is <strong>CLOSE</strong>");
                     default:
                         break;
                 }
@@ -133,23 +178,10 @@ public class Bot extends TelegramLongPollingBot {
 
     }
 
-    public void openNotification(Long who){
-        boolean isWrite = false;
-        while (true){
-            if (this.isPasssword){
-                if (!isWrite) {
-                    sendText(who, "LOCK OPEN BY PASSWORD");
-                    isWrite = true;
-                }
-            }else {
-                isWrite = false;
-            }
-        }
-    }
 
     public void sendText(Long who, String what){
         SendMessage message = SendMessage.builder()
-                .chatId(who.toString())
+                .chatId(who.toString()).parseMode("HTML")
                 .text(what).build();
         try {
             execute(message);
@@ -173,18 +205,16 @@ public class Bot extends TelegramLongPollingBot {
 
     private void getPassword(Long who, String digit){
         if (digit.length() == 4){
-            int i = 0;
-            while (i < digit.length()){
+            for(int i = 0;i < digit.length(); i++){
                 if (!Character.isDigit(digit.charAt(i))){
                     sendText(who, "that's not digit \n<strong>Try again</strong>");
                     return;
                 }
-                i++;
             }
             try {
                 publisher.publish(passwordTopic, digit, qos, retained);
                 sendText(who, "password successfuly change");
-                this.isPasssword = false;
+                this.isPasswordChange = false;
             }catch (Exception e){
                 sendText(who, "password not changed try again");
                 throw new RuntimeException();
@@ -219,33 +249,41 @@ public class Bot extends TelegramLongPollingBot {
 
         switch (data.toString()){
             case "open":
-                newTxt.setText("<em>Lock successfuly open</em>");
-                newKb.setReplyMarkup(KeyboardMarkups.getStateLockMenu());
+                isTub = true;
                 try {
-                    System.out.println("test publisher");
-                    publisher.publish(botTopic, "1", qos, retained);
                     publisher.publish(lockTopic, "1", qos, retained);
+                    publisher.publish(botTopic, "1", qos, retained);
+                    isOpen = true;
+                    Thread.sleep(1000);
                 }catch (Exception e){
                     throw new RuntimeException();
                 }
-                options.fillField(handler);//???????
+                newTxt.setText(isOpen == true ? "<em>State of Lock => OPEN</em>":"<em>State of Lock => CLOSE</em>" );
+                newKb.setReplyMarkup(KeyboardMarkups.getStateEditMenu());
+//                options.fillField(handler);//???????
+                isTub = false;
                 break;
             case "close":
-                newTxt.setText("<em>Lock successfuly close</em>");
-                newKb.setReplyMarkup(KeyboardMarkups.getStateLockMenu());
+                isTub = true;
                 try{
+                    publisher.publish(lockTopic, "0", qos, retained);
                     publisher.publish(botTopic, "0", qos, retained);
+                    isOpen = false;
+                    Thread.sleep(1000);
                 }catch (Exception e){
                     throw new RuntimeException();
                 }
-                options.fillField(handler);//????
+                newTxt.setText(isOpen == true ? "<em>State of Lock => OPEN</em>":"<em>State of Lock => CLOSE</em>" );
+                newKb.setReplyMarkup(KeyboardMarkups.getStateEditMenu());
+                isTub = false;
+//                options.fillField(handler);//????
                 break;
             case "editLock":
-                newTxt.setText("<em>Choose state of Lock</em>");
-                newKb.setReplyMarkup(KeyboardMarkups.getStateLockMenu());
+                newTxt.setText(isOpen == true ? "<em>State of Lock => OPEN</em>":"<em>State of Lock => CLOSE</em>" );
+                newKb.setReplyMarkup(KeyboardMarkups.getStateEditMenu());
                 break;
             case "changePassword":
-                this.isPasssword = true;
+                this.isPasswordChange = true;
                 newTxt.setText("<strong>to change password write <u>four-digit number</u>\n" +
                         "from <u>1, 2, 3 or 4</u> digit</strong>");
                 try{
@@ -254,13 +292,13 @@ public class Bot extends TelegramLongPollingBot {
                     throw new RuntimeException();
                 }
                 return;
-            case "backLock":
+            case "backEditorLock":
             case "backPassword":
                 newTxt.setText("<b>Menu</b>");
                 newKb.setReplyMarkup(KeyboardMarkups.getStartMenu());
                 break;
             case "exitPassword":
-            case "exitLock":
+            case "exitEditorLock":
             case "exitStart":
                 newTxt.setText("You sucsesfuly exit from MENU\nto BACK in menu write command \\menu again");
                 try{

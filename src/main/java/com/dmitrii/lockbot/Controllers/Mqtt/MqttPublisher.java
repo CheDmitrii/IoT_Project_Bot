@@ -34,6 +34,7 @@ public class MqttPublisher {
         }else {
             System.out.println("not conected");
         }
+        System.out.println("sended message");
 
 //        mqttClient.disconnect();
     }

@@ -9,7 +9,8 @@ public class HandlerTopicMessage implements MessageHandler {
     private String botValue;
     private String lockValue;
     private String paswordValue;
-    private boolean isOpenByPassword;
+    private boolean isByPasswordOpen;
+    private boolean isByPasswordClose;
     @Override
     public void handleMessage(Message<?> message) throws MessagingException {
         String topic = message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC).toString();
@@ -21,11 +22,11 @@ public class HandlerTopicMessage implements MessageHandler {
         }
         if (topic.equals("IoTLock/bot")){
             botValue = (String) message.getPayload();
-            if (botValue.equals(lockValue)){
-                isOpenByPassword = false;
-            }else {
-                isOpenByPassword = true;
-            }
+//            if (botValue.equals(lockValue)){
+//                isByPasswordOpen = false;
+//            }else {
+//                isByPasswordOpen = true;
+//            }
             System.out.println("BOT TOPIC");
             System.out.println(topic);
             System.out.println(botValue);
@@ -36,6 +37,14 @@ public class HandlerTopicMessage implements MessageHandler {
             System.out.println(topic);
             System.out.println(paswordValue);
         }
+//        if (lockValue.equals("1") && botValue.equals("0")){
+//            this.isByPasswordOpen = true;
+//            this.isByPasswordClose = false;
+//        }
+//        if (lockValue.equals("0") && botValue.equals("1")){
+//            this.isByPasswordOpen = false;
+//            this.isByPasswordClose = true;
+//        }
     }
 
     public String getBotValue() {
@@ -50,7 +59,7 @@ public class HandlerTopicMessage implements MessageHandler {
         return paswordValue;
     }
 
-    public boolean isOpenByPassword() {
-        return isOpenByPassword;
+    public boolean isByPasswordOpen() {
+        return isByPasswordOpen;
     }
 }
