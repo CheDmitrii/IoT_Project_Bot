@@ -2,6 +2,8 @@ package com.dmitrii.lockbot.Service;
 
 import com.dmitrii.lockbot.Controllers.Mqtt.HandlerTopicMessage;
 import com.dmitrii.lockbot.Controllers.Mqtt.MqttPublisher;
+import com.dmitrii.lockbot.Elements.History.HistoryList;
+import com.dmitrii.lockbot.Elements.History.HistoryUnit;
 import com.dmitrii.lockbot.Elements.KeyboardMarkups;
 import com.dmitrii.lockbot.Elements.LockOptions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,9 +61,6 @@ public class Bot extends TelegramLongPollingBot {
     private volatile boolean isOpen = false;
     private volatile boolean isTub = false;
 
-    private final static Lock lock = new ReentrantLock();
-    private Object synchron = new Object(); // to synchonise threads
-
 
     public Bot(String name, String token) {
         super();
@@ -94,10 +93,20 @@ public class Bot extends TelegramLongPollingBot {
             var id = user.getId();
             if (msg.isCommand()) {
                 switch (msg.getText()) {
+//                    case "/topic":
+//                        sendText(id, "bot ==> " + handler.getBotValue() + "\nlock ==> " + handler.getLockValue());
+//                        break;
+//                    case "/by":
+//                        if (handler.getBotValue().equals("0") && handler.getLockValue().equals("1")){
+//                            sendText(id, "lock open by password");
+//                        }
+//                        if (handler.getBotValue().equals("1") && handler.getLockValue().equals("0")){
+//                            sendText(id, "lock closed by password");
+//                        }
                     case "/start":
                         Thread threadNotification = new Thread(() -> {
                             boolean isWriteOpen = false, isWriteClose = false;
-                            String botVal = "", lockVal = "";
+                            String  botVal = "", lockVal = "";
                             Long chatId = msg.getChatId();
                             while (true) {
                                 while (isTub)
@@ -105,19 +114,15 @@ public class Bot extends TelegramLongPollingBot {
                                 lockVal = handler.getLockValue();
 //                                System.out.println("botVal ==> " + botVal);
 //                                System.out.println("lockVal ==> " + lockVal);
-                                if (botVal.equals("0") && lockVal.equals("1")) {
+                                if (handler.getBotValue().equals("0") && handler.getLockValue().equals("1")) {
                                     isPassswordOpen = true;
                                     isPassswordClose = false;
-//                                    System.out.println("isPassswordOpen == " + isPassswordOpen);
-//                                    System.out.println("isPassswordClose == " + isPassswordClose);
                                 }
-                                if (botVal.equals("1") && lockVal.equals("0")) {
+                                if (handler.getBotValue().equals("1") && handler.getLockValue().equals("0")) {
                                     isPassswordOpen = false;
                                     isPassswordClose = true;
-//                                    System.out.println("isPassswordOpen == " + isPassswordOpen);
-//                                    System.out.println("isPassswordClose == " + isPassswordClose);
                                 }
-                                if (botVal.equals(lockVal)) {
+                                if (handler.getBotValue().equals(handler.getLockValue())) {
                                     isPassswordOpen = false;
                                     isPassswordClose = false;
                                 }
@@ -130,6 +135,7 @@ public class Bot extends TelegramLongPollingBot {
                                             throw new RuntimeException();
                                         }
                                         sendText(chatId, "lock is opened by password");
+                                        HistoryList.addHistory(3);
                                         isOpen = true;
                                         isWriteOpen = true;
                                     }
@@ -145,6 +151,7 @@ public class Bot extends TelegramLongPollingBot {
                                             throw new RuntimeException();
                                         }
                                         sendText(chatId, "lock is closed by password");
+                                        HistoryList.addHistory(4);
                                         isOpen = false;
                                         isWriteClose = true;
                                     }
@@ -162,6 +169,10 @@ public class Bot extends TelegramLongPollingBot {
                     case"/state":
                         if (isOpen) sendText(id, "State of lock is <strong>OPEN</strong>");
                         else sendText(id, "State of lock is <strong>CLOSE</strong>");
+                        break;
+                    case "/history":
+                        sendText(id, HistoryList.getHistory());
+                        break;
                     default:
                         break;
                 }
@@ -260,6 +271,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 newTxt.setText(isOpen == true ? "<em>State of Lock => OPEN</em>":"<em>State of Lock => CLOSE</em>" );
                 newKb.setReplyMarkup(KeyboardMarkups.getStateEditMenu());
+                HistoryList.addHistory(1);
 //                options.fillField(handler);//???????
                 isTub = false;
                 break;
@@ -275,6 +287,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 newTxt.setText(isOpen == true ? "<em>State of Lock => OPEN</em>":"<em>State of Lock => CLOSE</em>" );
                 newKb.setReplyMarkup(KeyboardMarkups.getStateEditMenu());
+                HistoryList.addHistory(2);
                 isTub = false;
 //                options.fillField(handler);//????
                 break;

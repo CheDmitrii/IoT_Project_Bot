@@ -29,12 +29,12 @@ public class MqttPublisher {
         mqttMessage.setRetained(retained);
 
         if (mqttClient.isConnected()){
-            System.out.println("conected");
+//            System.out.println("conected");
             mqttClient.publish(topic, mqttMessage);
         }else {
-            System.out.println("not conected");
+            System.out.println("not conected to send message");
         }
-        System.out.println("sended message");
+//        System.out.println("sended message");
 
 //        mqttClient.disconnect();
     }

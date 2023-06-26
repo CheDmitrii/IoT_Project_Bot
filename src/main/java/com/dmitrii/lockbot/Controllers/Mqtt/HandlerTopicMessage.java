@@ -9,8 +9,7 @@ public class HandlerTopicMessage implements MessageHandler {
     private String botValue;
     private String lockValue;
     private String paswordValue;
-    private boolean isByPasswordOpen;
-    private boolean isByPasswordClose;
+
     @Override
     public void handleMessage(Message<?> message) throws MessagingException {
         String topic = message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC).toString();
@@ -59,7 +58,4 @@ public class HandlerTopicMessage implements MessageHandler {
         return paswordValue;
     }
 
-    public boolean isByPasswordOpen() {
-        return isByPasswordOpen;
-    }
 }
