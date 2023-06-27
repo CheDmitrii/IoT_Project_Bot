@@ -93,27 +93,12 @@ public class Bot extends TelegramLongPollingBot {
             var id = user.getId();
             if (msg.isCommand()) {
                 switch (msg.getText()) {
-//                    case "/topic":
-//                        sendText(id, "bot ==> " + handler.getBotValue() + "\nlock ==> " + handler.getLockValue());
-//                        break;
-//                    case "/by":
-//                        if (handler.getBotValue().equals("0") && handler.getLockValue().equals("1")){
-//                            sendText(id, "lock open by password");
-//                        }
-//                        if (handler.getBotValue().equals("1") && handler.getLockValue().equals("0")){
-//                            sendText(id, "lock closed by password");
-//                        }
                     case "/start":
                         Thread threadNotification = new Thread(() -> {
                             boolean isWriteOpen = false, isWriteClose = false;
-                            String  botVal = "", lockVal = "";
                             Long chatId = msg.getChatId();
                             while (true) {
                                 while (isTub)
-                                botVal = handler.getBotValue();
-                                lockVal = handler.getLockValue();
-//                                System.out.println("botVal ==> " + botVal);
-//                                System.out.println("lockVal ==> " + lockVal);
                                 if (handler.getBotValue().equals("0") && handler.getLockValue().equals("1")) {
                                     isPassswordOpen = true;
                                     isPassswordClose = false;
@@ -201,24 +186,13 @@ public class Bot extends TelegramLongPollingBot {
         }
     }
 
-    public void copyMessage(Long who, Integer messageID){
-        CopyMessage copy = CopyMessage.builder()
-                .chatId(who.toString())
-                .messageId(messageID)
-                .fromChatId(who.toString())
-                .build();
-        try{
-            execute(copy);
-        }catch (TelegramApiException e){
-            throw new RuntimeException();
-        }
-    }
-
     private void getPassword(Long who, String digit){
         if (digit.length() == 4){
             for(int i = 0;i < digit.length(); i++){
-                if (!Character.isDigit(digit.charAt(i))){
-                    sendText(who, "that's not digit \n<strong>Try again</strong>");
+                if (!Character.isDigit(digit.charAt(i)) ||
+                        Character.getNumericValue(digit.charAt(i)) < 1 ||
+                        Character.getNumericValue(digit.charAt(i)) > 4){
+                    sendText(who, "No valible password - character \n<strong>Try again</strong>");
                     return;
                 }
             }
@@ -230,6 +204,8 @@ public class Bot extends TelegramLongPollingBot {
                 sendText(who, "password not changed try again");
                 throw new RuntimeException();
             }
+        }else {
+            sendText(who, "Length of password is to long \n<strong>Try again</strong>");
         }
     }
 
